@@ -244,6 +244,12 @@ UINT tsmf_ifman_add_stream(TSMF_IFMAN* ifman, rdpContext* rdpcontext)
 			WLog_ERR(TAG, "failed to set stream format");
 			return ERROR_OUTOFMEMORY;
 		}
+=======
+		stream = tsmf_stream_new(presentation, StreamId);
+		if (stream)
+			tsmf_stream_set_format(stream, ifman->decoder_name, ifman->input);
+		tsmf_stream_start_threads(stream);
+>>>>>>> c9d6611170e5105fc576d6a5d480f9a54d7b1fd2
 	}
 
 	ifman->output_pending = TRUE;
