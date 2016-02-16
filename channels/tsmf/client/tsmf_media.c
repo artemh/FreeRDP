@@ -482,6 +482,9 @@ static BOOL tsmf_sample_playback_video(TSMF_SAMPLE* sample)
 			tsmf->FrameEvent(tsmf, &event);
 
 		free(event.frameData);
+
+		if(event.visibleRects != NULL)
+			free(event.visibleRects);
 	}
 	return TRUE;
 }
@@ -1091,6 +1094,15 @@ BOOL tsmf_presentation_set_geometry_info(TSMF_PRESENTATION* presentation,
 	
 	tmp_rects = realloc(presentation->rects, sizeof(RDP_RECT) * num_rects);
 
+<<<<<<< HEAD
+=======
+	if(!num_rects)
+		presentation->rects=NULL;
+
+	if (!tmp_rects&&num_rects)
+		return;
+
+>>>>>>> c9d6611170e5105fc576d6a5d480f9a54d7b1fd2
 	presentation->nr_rects = num_rects;
 	presentation->rects = tmp_rects;
 
@@ -1206,6 +1218,7 @@ TSMF_STREAM* tsmf_stream_new(TSMF_PRESENTATION* presentation, UINT32 stream_id, 
 		goto error_sample_ack_list;
 	stream->sample_ack_list->object.fnObjectFree = tsmf_sample_free;
 
+<<<<<<< HEAD
 	stream->play_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) tsmf_stream_playback_func, stream, 0, NULL);
 	if (!stream->play_thread)
 		goto error_play_thread;
@@ -1215,6 +1228,10 @@ TSMF_STREAM* tsmf_stream_new(TSMF_PRESENTATION* presentation, UINT32 stream_id, 
 
 	if (ArrayList_Add(presentation->stream_list, stream) < 0)
 		goto error_add;
+=======
+	stream->play_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) tsmf_stream_playback_func, stream, CREATE_SUSPENDED, NULL);
+	stream->ack_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)tsmf_stream_ack_func, stream, CREATE_SUSPENDED, NULL);
+>>>>>>> c9d6611170e5105fc576d6a5d480f9a54d7b1fd2
 
 	stream->rdpcontext = rdpcontext;
 
@@ -1239,6 +1256,12 @@ error_ready:
 error_stopEvent:
 	free(stream);
 	return NULL;
+}
+
+void tsmf_stream_start_threads (TSMF_STREAM* stream)
+{
+	ResumeThread(stream->play_thread);
+	ResumeThread(stream->ack_thread);
 }
 
 TSMF_STREAM *tsmf_stream_find_by_id(TSMF_PRESENTATION* presentation, UINT32 stream_id)
