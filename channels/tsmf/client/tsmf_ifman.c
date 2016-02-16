@@ -231,7 +231,7 @@ UINT tsmf_ifman_add_stream(TSMF_IFMAN* ifman, rdpContext* rdpcontext)
 	{
 		Stream_Read_UINT32(ifman->input, StreamId);
 		Stream_Seek_UINT32(ifman->input); /* numMediaType */
-<<<<<<< HEAD
+
 		stream = tsmf_stream_new(presentation, StreamId, rdpcontext);
 		if (!stream)
 		{
