@@ -525,6 +525,7 @@ BOOL drive_file_set_information(DRIVE_FILE* file, UINT32 FsInformationClass, UIN
 	UINT32 FileAttributes;
 	UINT32 FileNameLength;
 	int fd;
+	LARGE_INTEGER liSize;
 
 	m = 0;
 
