@@ -122,8 +122,10 @@ if(NOT DEFINED BUILD_SHARED_LIBS)
 	endif()
 endif()
 
-if(NOT DEFINED EXPORT_ALL_SYMBOLS)
-	set(EXPORT_ALL_SYMBOLS TRUE)
+if(BUILD_TESTING)
+    set(EXPORT_ALL_SYMBOLS TRUE)
+elseif(NOT DEFINED EXPORT_ALL_SYMBOLS)
+    set(EXPORT_ALL_SYMBOLS FALSE)
 endif()
 
 # BSD
@@ -788,6 +790,10 @@ include_directories("${CMAKE_SOURCE_DIR}/rdtk/include")
 include_directories("${CMAKE_BINARY_DIR}/rdtk/include")
 
 add_subdirectory(rdtk)
+
+if(WAYLAND_FOUND)
+    add_subdirectory(uwac)
+endif()
 
 if(BSD)
 	if(IS_DIRECTORY /usr/local/include)
