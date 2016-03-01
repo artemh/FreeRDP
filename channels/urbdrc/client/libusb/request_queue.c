@@ -21,10 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+
 #include "request_queue.h"
 
-TRANSFER_REQUEST* request_queue_get_next(REQUEST_QUEUE* queue)
+static TRANSFER_REQUEST* request_queue_get_next(REQUEST_QUEUE* queue)
 {
 	TRANSFER_REQUEST* request;
 
@@ -34,7 +34,7 @@ TRANSFER_REQUEST* request_queue_get_next(REQUEST_QUEUE* queue)
 	return request;
 }
 
-int request_queue_has_next(REQUEST_QUEUE* queue)
+static int request_queue_has_next(REQUEST_QUEUE* queue)
 {
 	if (queue->ireq == NULL)
 		return 0;
@@ -42,12 +42,14 @@ int request_queue_has_next(REQUEST_QUEUE* queue)
 		return 1;
 }
 
-TRANSFER_REQUEST* request_queue_register_request(REQUEST_QUEUE* queue, UINT32 RequestId,
-	struct libusb_transfer* transfer, BYTE endpoint)
+static TRANSFER_REQUEST* request_queue_register_request(REQUEST_QUEUE* queue, UINT32 RequestId,
+												 struct libusb_transfer* transfer, BYTE endpoint)
 {
 	TRANSFER_REQUEST* request;
 
 	request = (TRANSFER_REQUEST*) malloc(sizeof(TRANSFER_REQUEST));
+	if (!request)
+		return NULL;
 
 	request->prev = NULL;
 	request->next = NULL;
@@ -57,7 +59,8 @@ TRANSFER_REQUEST* request_queue_register_request(REQUEST_QUEUE* queue, UINT32 Re
 	request->endpoint = endpoint;
 	request->submit = 0;
 
-	pthread_mutex_lock(&queue->request_loading);
+	if (WaitForSingleObject(queue->request_loading, INFINITE) != WAIT_OBJECT_0)
+		goto out;
 
 	if (queue->head == NULL)
 	{
@@ -74,47 +77,58 @@ TRANSFER_REQUEST* request_queue_register_request(REQUEST_QUEUE* queue, UINT32 Re
 	}
 
 	queue->request_num += 1;
-	pthread_mutex_unlock(&queue->request_loading);
+	ReleaseMutex(queue->request_loading);
 
 	return request;
+
+out:
+	free(request);
+	return NULL;
 }
 
-void request_queue_rewind(REQUEST_QUEUE* queue)
+static void request_queue_rewind(REQUEST_QUEUE* queue)
 {
 	queue->ireq = queue->head;
 }
 
 /* Get first*/
-TRANSFER_REQUEST* request_queue_get_request_by_endpoint(REQUEST_QUEUE* queue, BYTE ep)
+static TRANSFER_REQUEST* request_queue_get_request_by_endpoint(REQUEST_QUEUE* queue, BYTE ep)
 {
 	TRANSFER_REQUEST * request;
-	pthread_mutex_lock(&queue->request_loading);
+
+	if (WaitForSingleObject(queue->request_loading, INFINITE) != WAIT_OBJECT_0)
+		return NULL;
+
 	queue->rewind (queue);
 	while (queue->has_next (queue))
 	{
 		request = queue->get_next (queue);
 		if (request->endpoint == ep)
 		{
-			pthread_mutex_unlock(&queue->request_loading);
+			ReleaseMutex(queue->request_loading);
 			return request;
 		}
 	}
-	pthread_mutex_unlock(&queue->request_loading);
+
+	ReleaseMutex(queue->request_loading);
 	WLog_ERR(TAG,  "request_queue_get_request_by_id: ERROR!!");
 	return NULL;
 }
 
-int request_queue_unregister_request(REQUEST_QUEUE* queue, UINT32 RequestId)
+static int request_queue_unregister_request(REQUEST_QUEUE* queue, UINT32 RequestId)
 {
 	TRANSFER_REQUEST *request, *request_temp;
-	pthread_mutex_lock(&queue->request_loading);
+
+	if (!WaitForSingleObject(queue->request_loading, INFINITE) != WAIT_OBJECT_0)
+		return -1;
+
 	queue->rewind(queue);
 
 	while (queue->has_next(queue) != 0)
 	{
 		request = queue->get_next(queue);
 
-		if (request->RequestId == RequestId) 
+		if (request->RequestId == RequestId)
 		{
 
 			if (request->prev != NULL)
@@ -143,30 +157,34 @@ int request_queue_unregister_request(REQUEST_QUEUE* queue, UINT32 RequestId)
 			if (request)
 			{
 				request->transfer = NULL;
-				zfree(request); 
+				free(request);
 			}
 
-			pthread_mutex_unlock(&queue->request_loading);
+			ReleaseMutex(queue->request_loading);
 
-			return 0; 
+			return 0;
 		}
 	}
-	pthread_mutex_unlock(&queue->request_loading);
+
+	ReleaseMutex(queue->request_loading);
 	/* it wasn't found */
 	return 1;
 }
 
-REQUEST_QUEUE* request_queue_new()
+REQUEST_QUEUE* request_queue_new(void)
 {
 	REQUEST_QUEUE* queue;
 
-	queue = (REQUEST_QUEUE*) malloc(sizeof(REQUEST_QUEUE));
-	queue->request_num = 0;
-	queue->ireq = NULL;
-	queue->head = NULL;
-	queue->tail = NULL;   
+	queue = (REQUEST_QUEUE*) calloc(1, sizeof(REQUEST_QUEUE));
+	if (!queue)
+		return NULL;
 
-	pthread_mutex_init(&queue->request_loading, NULL);
+	queue->request_loading = CreateMutex(NULL, FALSE, NULL);
+	if (!queue->request_loading)
+	{
+		free(queue);
+		return NULL;
+	}
 
 	/* load service */
 	queue->get_next = request_queue_get_next;

@@ -22,7 +22,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <winpr/crt.h>
 #include <winpr/synch.h>
@@ -92,8 +91,8 @@ static int searchman_list_remove(USB_SEARCHMAN* searchman, UINT16 idVendor, UINT
 	{
 		point = searchman_get_next(searchman);
 
-		if (point->idVendor == idVendor && 
-			point->idProduct == idProduct)
+		if (point->idVendor == idVendor &&
+				point->idProduct == idProduct)
 		{
 			/* set previous device to point to next device */
 
@@ -125,7 +124,7 @@ static int searchman_list_remove(USB_SEARCHMAN* searchman, UINT16 idVendor, UINT
 			}
 			searchman->usb_numbers--;
 			
-			free(search); 
+			free(search);
 			
 			return 1; /* unregistration successful */
 		}
@@ -137,13 +136,14 @@ static int searchman_list_remove(USB_SEARCHMAN* searchman, UINT16 idVendor, UINT
 
 static BOOL searchman_start(USB_SEARCHMAN* self, void* func)
 {
-	pthread_t thread;
+	HANDLE thread;
 	
 	/* create search thread */
-	if (pthread_create(&thread, 0, func, self) != 0)
+	thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, self, 0, NULL);
+	if (!thread)
 		return FALSE;
 
-	if (pthread_detach(thread) != 0)
+	if (!CloseHandle(thread))
 		return FALSE;
 
 	self->started = 1;
@@ -173,7 +173,7 @@ static void searchman_list_show(USB_SEARCHMAN* self)
 	WLog_DBG(TAG,  "================= END ===============");
 }
 
-void searchman_free(USB_SEARCHMAN* self)
+static void searchman_free(USB_SEARCHMAN* self)
 {
 	USB_SEARCHDEV * dev;
 
@@ -184,16 +184,15 @@ void searchman_free(USB_SEARCHMAN* self)
 	}
 
 	/* free searchman */
-	sem_destroy(&self->sem_term);
+	CloseHandle(self->sem_term);
 	CloseHandle(self->term_event);
 	free(self);
 }
 
 USB_SEARCHMAN* searchman_new(void * urbdrc, UINT32 UsbDevice)
 {
-	int ret;
 	USB_SEARCHMAN* searchman;
-	
+
 	searchman = (USB_SEARCHMAN*) calloc(1, sizeof(USB_SEARCHMAN));
 	if (!searchman)
 		return NULL;
@@ -201,13 +200,13 @@ USB_SEARCHMAN* searchman_new(void * urbdrc, UINT32 UsbDevice)
 	searchman->urbdrc = urbdrc;
 	searchman->UsbDevice = UsbDevice;
 
-	ret = pthread_mutex_init(&searchman->mutex, NULL);
-	if (ret != 0)
+	searchman->mutex = CreateMutex(NULL, FALSE, NULL);
+	if (searchman->mutex == NULL)
 	{
 		WLog_ERR(TAG, "searchman mutex initialization: searchman->mutex failed");
 		goto out_error_mutex;
 	}
-	
+
 	/* load service */
 	searchman->add = searchman_list_add;
 	searchman->remove = searchman_list_remove;
@@ -218,13 +217,14 @@ USB_SEARCHMAN* searchman_new(void * urbdrc, UINT32 UsbDevice)
 	searchman->start = searchman_start;
 	searchman->close = searchman_close;
 	searchman->free = searchman_free;
-	
+
 	searchman->started = 0;
 	searchman->term_event = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!searchman->term_event)
 		goto out_error_event;
-	
-	if (sem_init(&searchman->sem_term, 0, 0) < 0)
+
+	searchman->sem_term = CreateSemaphoreA(NULL, 0, 0xFFFFFFFFL, NULL);
+	if (!searchman->sem_term)
 		goto out_error_sem;
 
 	return searchman;
@@ -232,7 +232,7 @@ USB_SEARCHMAN* searchman_new(void * urbdrc, UINT32 UsbDevice)
 out_error_sem:
 	CloseHandle(searchman->term_event);
 out_error_event:
-	pthread_mutex_destroy(&searchman->mutex);
+	CloseHandle(&searchman->mutex);
 out_error_mutex:
 	free(searchman);
 	return NULL;
