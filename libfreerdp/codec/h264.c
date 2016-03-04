@@ -1132,12 +1132,12 @@ static BOOL openh264_init(H264_CONTEXT* h264)
 			goto EXCEPTION;
 		}
 
-		status = (*sys->pDecoder)->SetOption(sys->pDecoder, DECODER_OPTION_DATAFORMAT, &videoFormat);
+		//status = (*sys->pDecoder)->SetOption(sys->pDecoder, DECODER_OPTION_DATAFORMAT, &videoFormat);
 
-		if (status != 0)
-		{
-			WLog_ERR(TAG, "Failed to set data format option on OpenH264 decoder (status=%ld)", status);
-		}
+		//if (status != 0)
+		//{
+		//	WLog_ERR(TAG, "Failed to set data format option on OpenH264 decoder (status=%ld)", status);
+		//}
 
 		if (g_openh264_trace_enabled)
 		{
