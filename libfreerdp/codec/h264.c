@@ -949,7 +949,7 @@ static int openh264_compress(H264_CONTEXT* h264, BYTE** ppDstData, UINT32* pDstS
 
 		if (sys->EncParamExt.iMultipleThreadIdc > 1)
 		{
-			sys->EncParamExt.sSpatialLayers[0].sSliceCfg.uiSliceMode = SM_AUTO_SLICE;
+			sys->EncParamExt.sSpatialLayers[0].sSliceArgument.uiSliceMode = SM_AUTO_SLICE;
 		}
 
 		status = (*sys->pEncoder)->InitializeExt(sys->pEncoder, &sys->EncParamExt);
@@ -1120,7 +1120,7 @@ static BOOL openh264_init(H264_CONTEXT* h264)
 		}
 
 		ZeroMemory(&sDecParam, sizeof(sDecParam));
-		sDecParam.eOutputColorFormat  = videoFormatI420;
+		//sDecParam.eOutputColorFormat  = videoFormatI420;
 		sDecParam.eEcActiveIdc = ERROR_CON_FRAME_COPY;
 		sDecParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_AVC;
 
